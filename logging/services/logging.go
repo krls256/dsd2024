@@ -2,39 +2,27 @@ package services
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/samber/lo"
-	"sync"
+	"github.com/krls256/dsd2024/logging/entities"
+	"github.com/krls256/dsd2024/logging/repositories"
+	"log/slog"
 )
 
-type Message struct {
-	ID   uuid.UUID `json:"id"`
-	Text string    `json:"text"`
-}
-
-func NewLoggingService() *LoggingService {
+func NewLoggingService(repo *repositories.LoggingRepository) *LoggingService {
 	return &LoggingService{
-		storage: make(map[uuid.UUID]string),
+		repo: repo,
 	}
 }
 
 type LoggingService struct {
-	storage   map[uuid.UUID]string
-	storageMu sync.RWMutex
+	repo *repositories.LoggingRepository
 }
 
-func (s *LoggingService) Log(ctx context.Context, msg Message) error {
-	s.storageMu.Lock()
-	defer s.storageMu.Unlock()
+func (s *LoggingService) Log(ctx context.Context, msg entities.Log) error {
+	slog.Info("logging", "text", msg.Text)
 
-	s.storage[msg.ID] = msg.Text
-
-	return nil
+	return s.repo.Save(ctx, msg)
 }
 
-func (s *LoggingService) AllLog(ctx context.Context) []string {
-	s.storageMu.RLock()
-	defer s.storageMu.RUnlock()
-
-	return lo.Values(s.storage)
+func (s *LoggingService) AllLog(ctx context.Context) ([]string, error) {
+	return s.repo.All(ctx)
 }

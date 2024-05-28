@@ -18,15 +18,7 @@ import (
 func main() {
 	now := time.Now()
 
-	loggingCfg := transportGRPC.Config{Host: "0.0.0.0", Port: 1234}
 	messagesCfg := transportGRPC.Config{Host: "0.0.0.0", Port: 1235}
-
-	loggingConn, err := grpc.Dial(loggingCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		slog.Error(err.Error())
-
-		return
-	}
 
 	messagesConn, err := grpc.Dial(messagesCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -35,7 +27,13 @@ func main() {
 		return
 	}
 
-	loggingClient := api.NewLoggingServiceClient(loggingConn)
+	loggingClient, err := NewLoggingClients()
+	if err != nil {
+		slog.Error(err.Error())
+
+		return
+	}
+
 	messagesClient := api.NewMessagesServiceClient(messagesConn)
 
 	facadeService := services.NewFacadeService(loggingClient, messagesClient)
@@ -58,4 +56,22 @@ func main() {
 	s.Shutdown(context.Background())
 
 	slog.Info("shutdown", "server was running for", time.Since(now))
+}
+
+func NewLoggingClients() (api.LoggingClients, error) {
+	ports := []uint16{1230, 1231, 1232}
+	clients := []api.LoggingServiceClient{}
+
+	for _, port := range ports {
+		loggingCfg := transportGRPC.Config{Host: "0.0.0.0", Port: port}
+
+		loggingConn, err := grpc.Dial(loggingCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return api.LoggingClients{}, err
+		}
+
+		clients = append(clients, api.NewLoggingServiceClient(loggingConn))
+	}
+
+	return api.NewLoggingClients(clients...), nil
 }

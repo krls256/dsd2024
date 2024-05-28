@@ -4,6 +4,8 @@ go 1.22.0
 
 require (
 	github.com/gofiber/fiber/v3 v3.0.0-20240328094538-dfe5c6fd0427
+	github.com/google/uuid v1.6.0
+	github.com/hazelcast/hazelcast-go-client v1.4.1
 	github.com/samber/lo v1.39.0
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.62.1
@@ -17,13 +19,11 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gofiber/utils/v2 v2.0.0-beta.4 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/hazelcast/hazelcast-go-client v1.4.1 // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/puzpuzpuz/xsync/v3 v3.1.0 // indirect
+	github.com/sarulabs/di/v2 v2.4.2 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
