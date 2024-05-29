@@ -9,6 +9,7 @@ import (
 
 func main() {
 	config := hazelcast.Config{}
+
 	config.Cluster.Network.SetAddresses("0.0.0.0:5701", "0.0.0.0:5702", "0.0.0.0:5703")
 	config.Cluster.Name = "hzc"
 
@@ -17,7 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	nums, err := client.GetMap(context.Background(), "numbers")
+	nums, err := client.GetMap(context.Background(), "numbersv2")
 	if err != nil {
 		log.Fatal(err)
 	}

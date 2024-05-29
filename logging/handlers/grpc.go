@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/krls256/dsd2024/api"
+	"github.com/krls256/dsd2024/logging/entities"
 	"github.com/krls256/dsd2024/logging/services"
 )
 
@@ -24,7 +25,7 @@ func (h *LoggingHandler) Log(ctx context.Context, message *api.LoggingMessage) (
 		}, err
 	}
 
-	err = h.loggingService.Log(ctx, services.Message{
+	err = h.loggingService.Log(ctx, entities.Log{
 		ID:   id,
 		Text: message.Text,
 	})
@@ -43,7 +44,11 @@ func (h *LoggingHandler) Log(ctx context.Context, message *api.LoggingMessage) (
 }
 
 func (h *LoggingHandler) All(ctx context.Context, request *api.LoggingZeroRequest) (*api.AllText, error) {
-	logs := h.loggingService.AllLog(ctx)
+	logs, err := h.loggingService.AllLog(ctx)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &api.AllText{
 		Text: logs,
