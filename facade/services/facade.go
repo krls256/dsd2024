@@ -2,22 +2,28 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/api"
 	"strings"
 )
 
-func NewFacadeService(loggingClient api.LoggingServiceClient, messagesClient api.MessagesServiceClient) *FacadeService {
+func NewFacadeService(loggingClient api.LoggingServiceClient, messagesClient api.MessagesServiceClient, hazelcastClient *hazelcast.Client) *FacadeService {
 	return &FacadeService{
 		loggingClient:  loggingClient,
 		messagesClient: messagesClient,
+
+		hazelcastClient: hazelcastClient,
 	}
 }
 
 type FacadeService struct {
 	loggingClient  api.LoggingServiceClient
 	messagesClient api.MessagesServiceClient
+
+	hazelcastClient *hazelcast.Client
 }
 
 func (s *FacadeService) Info(ctx context.Context) (string, error) {
@@ -46,14 +52,31 @@ func (s *FacadeService) Message(ctx context.Context, text string) error {
 		return fmt.Errorf(logRes.ErrorMessage)
 	}
 
-	messageRes, err := s.messagesClient.SendMessage(ctx, &api.Message{
-		Id:   id[:],
+	if err = s.SendMessage(ctx, Message{
+		ID:   id,
 		Text: text,
-	})
-
-	if err != nil {
-		return fmt.Errorf(messageRes.ErrorMessage)
+	}); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (s *FacadeService) SendMessage(ctx context.Context, message Message) error {
+	bts, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	q, err := s.hazelcastClient.GetQueue(ctx, "messages")
+	if err != nil {
+		return err
+	}
+
+	return q.Put(ctx, string(bts))
+}
+
+type Message struct {
+	ID   uuid.UUID `json:"id"`
+	Text string    `json:"text"`
 }

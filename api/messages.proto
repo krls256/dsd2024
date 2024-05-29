@@ -17,7 +17,7 @@ message Message {
 }
 
 message Messages {
-  string text = 1;
+  repeated string text = 1;
 }
 
 message MessagesStatusResponse {

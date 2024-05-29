@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/api"
+	facadeDI "github.com/krls256/dsd2024/facade/di"
 	"github.com/krls256/dsd2024/facade/handlers"
 	"github.com/krls256/dsd2024/facade/services"
+	pkgDI "github.com/krls256/dsd2024/pkg/di"
 	transportGRPC "github.com/krls256/dsd2024/pkg/transport/grpc"
 	"github.com/krls256/dsd2024/pkg/transport/http"
 	"github.com/krls256/dsd2024/utils"
@@ -17,15 +20,14 @@ import (
 
 func main() {
 	now := time.Now()
+	defs := facadeDI.Defs()
 
-	messagesCfg := transportGRPC.Config{Host: "0.0.0.0", Port: 1235}
-
-	messagesConn, err := grpc.Dial(messagesCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	ctn, err := pkgDI.Build(defs...)
 	if err != nil {
-		slog.Error(err.Error())
-
-		return
+		panic(err)
 	}
+
+	hc := ctn.Get(facadeDI.HazelcastClientName).(*hazelcast.Client)
 
 	loggingClient, err := NewLoggingClients()
 	if err != nil {
@@ -34,9 +36,14 @@ func main() {
 		return
 	}
 
-	messagesClient := api.NewMessagesServiceClient(messagesConn)
+	messagesClient, err := NewMessageClients()
+	if err != nil {
+		slog.Error(err.Error())
 
-	facadeService := services.NewFacadeService(loggingClient, messagesClient)
+		return
+	}
+
+	facadeService := services.NewFacadeService(loggingClient, messagesClient, hc)
 	facadeHandler := handlers.NewFacadeHandler(facadeService)
 
 	s := http.NewServer(context.Background(), "facade", slog.New(slog.NewTextHandler(os.Stdout, nil)),
@@ -74,4 +81,22 @@ func NewLoggingClients() (api.LoggingClients, error) {
 	}
 
 	return api.NewLoggingClients(clients...), nil
+}
+
+func NewMessageClients() (api.MessageClients, error) {
+	ports := []uint16{1240, 1241}
+	clients := []api.MessagesServiceClient{}
+
+	for _, port := range ports {
+		loggingCfg := transportGRPC.Config{Host: "0.0.0.0", Port: port}
+
+		messageConn, err := grpc.Dial(loggingCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return api.MessageClients{}, err
+		}
+
+		clients = append(clients, api.NewMessagesServiceClient(messageConn))
+	}
+
+	return api.NewMessageClients(clients...), nil
 }
