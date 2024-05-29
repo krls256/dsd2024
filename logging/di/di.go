@@ -5,11 +5,13 @@ import (
 	"github.com/krls256/dsd2024/logging/handlers"
 	"github.com/krls256/dsd2024/logging/repositories"
 	"github.com/krls256/dsd2024/logging/services"
+	pkgHazelcast "github.com/krls256/dsd2024/pkg/hazelcast"
 	"github.com/sarulabs/di/v2"
 )
 
 const (
 	HazelcastClientName = "HazelcastClient"
+	HazelcastConfigName = "HazelcastConfig"
 
 	LoggingRepositoryName = "LoggingRepository"
 	LoggingServiceName    = "LoggingService"
@@ -22,8 +24,9 @@ func Defs() []di.Def {
 			Name: LoggingRepositoryName,
 			Build: func(ctn di.Container) (interface{}, error) {
 				hc := ctn.Get(HazelcastClientName).(*hazelcast.Client)
+				cfg := ctn.Get(HazelcastConfigName).(pkgHazelcast.Config)
 
-				return repositories.NewLoggingRepository(hc), nil
+				return repositories.NewLoggingRepository(hc, cfg), nil
 			},
 		},
 		{

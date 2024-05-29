@@ -7,15 +7,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/api"
+	pkgHazelcast "github.com/krls256/dsd2024/pkg/hazelcast"
 	"strings"
 )
 
-func NewFacadeService(loggingClient api.LoggingServiceClient, messagesClient api.MessagesServiceClient, hazelcastClient *hazelcast.Client) *FacadeService {
+func NewFacadeService(loggingClient api.LoggingServiceClient, messagesClient api.MessagesServiceClient, hazelcastClient *hazelcast.Client, hazelcastCfg pkgHazelcast.Config) *FacadeService {
 	return &FacadeService{
 		loggingClient:  loggingClient,
 		messagesClient: messagesClient,
 
 		hazelcastClient: hazelcastClient,
+		hazelcastCfg:    hazelcastCfg,
 	}
 }
 
@@ -24,6 +26,7 @@ type FacadeService struct {
 	messagesClient api.MessagesServiceClient
 
 	hazelcastClient *hazelcast.Client
+	hazelcastCfg    pkgHazelcast.Config
 }
 
 func (s *FacadeService) Info(ctx context.Context) (string, error) {
@@ -68,7 +71,7 @@ func (s *FacadeService) SendMessage(ctx context.Context, message Message) error 
 		return err
 	}
 
-	q, err := s.hazelcastClient.GetQueue(ctx, "messages")
+	q, err := s.hazelcastClient.GetQueue(ctx, s.hazelcastCfg.QueueName)
 	if err != nil {
 		return err
 	}

@@ -2,26 +2,53 @@ package api
 
 import (
 	"context"
+	"github.com/krls256/dsd2024/pkg/consul"
+	transportGRPC "github.com/krls256/dsd2024/pkg/transport/grpc"
 	"google.golang.org/grpc"
-	"math/rand/v2"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewLoggingClients(loggingClient ...LoggingServiceClient) LoggingClients {
-	return LoggingClients{loggingClient: loggingClient}
+func NewLoggingClients(consulAddress, serviceType string) LoggingClients {
+	return LoggingClients{
+		consulAddress: consulAddress,
+		serviceType:   serviceType,
+	}
 }
 
 type LoggingClients struct {
-	loggingClient []LoggingServiceClient
+	consulAddress string
+	serviceType   string
 }
 
-func (l LoggingClients) randClient() LoggingServiceClient {
-	return l.loggingClient[rand.N[int](len(l.loggingClient))]
+func (l LoggingClients) randClient() (LoggingServiceClient, error) {
+	address, err := consul.DiscoverRandom(l.consulAddress, l.serviceType)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := transportGRPC.Config{Host: address.Host, Port: address.Port}
+	conn, err := grpc.Dial(cfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewLoggingServiceClient(conn), nil
 }
 
 func (l LoggingClients) Log(ctx context.Context, in *LoggingMessage, opts ...grpc.CallOption) (*LoggingStatusResponse, error) {
-	return l.randClient().Log(ctx, in, opts...)
+	c, err := l.randClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Log(ctx, in, opts...)
 }
 
 func (l LoggingClients) All(ctx context.Context, in *LoggingZeroRequest, opts ...grpc.CallOption) (*AllText, error) {
-	return l.randClient().All(ctx, in, opts...)
+	c, err := l.randClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.All(ctx, in, opts...)
 }

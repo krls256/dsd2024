@@ -4,21 +4,24 @@ import (
 	"context"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/logging/entities"
+	pkgHazelcast "github.com/krls256/dsd2024/pkg/hazelcast"
 	"github.com/samber/lo"
 )
 
-const LogsCollectionName = "logs_collection"
-
-func NewLoggingRepository(client *hazelcast.Client) *LoggingRepository {
-	return &LoggingRepository{client: client}
+func NewLoggingRepository(client *hazelcast.Client, cfg pkgHazelcast.Config) *LoggingRepository {
+	return &LoggingRepository{
+		client: client,
+		cfg:    cfg,
+	}
 }
 
 type LoggingRepository struct {
 	client *hazelcast.Client
+	cfg    pkgHazelcast.Config
 }
 
 func (r *LoggingRepository) start(ctx context.Context) (*hazelcast.Map, error) {
-	return r.client.GetMap(ctx, LogsCollectionName)
+	return r.client.GetMap(ctx, r.cfg.MapName)
 }
 
 func (r *LoggingRepository) Save(ctx context.Context, msg entities.Log) error {

@@ -2,21 +2,27 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/api"
 	facadeDI "github.com/krls256/dsd2024/facade/di"
 	"github.com/krls256/dsd2024/facade/handlers"
 	"github.com/krls256/dsd2024/facade/services"
+	"github.com/krls256/dsd2024/pkg/consul"
 	pkgDI "github.com/krls256/dsd2024/pkg/di"
-	transportGRPC "github.com/krls256/dsd2024/pkg/transport/grpc"
+	pkgHazelcast "github.com/krls256/dsd2024/pkg/hazelcast"
 	"github.com/krls256/dsd2024/pkg/transport/http"
 	"github.com/krls256/dsd2024/utils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
 	"os"
 	"time"
 )
+
+var port = flag.Uint("p", 1250, "set port")
+
+func init() {
+	flag.Parse()
+}
 
 func main() {
 	now := time.Now()
@@ -28,28 +34,18 @@ func main() {
 	}
 
 	hc := ctn.Get(facadeDI.HazelcastClientName).(*hazelcast.Client)
+	cfg := ctn.Get(facadeDI.HazelcastConfigName).(pkgHazelcast.Config)
 
-	loggingClient, err := NewLoggingClients()
-	if err != nil {
-		slog.Error(err.Error())
+	loggingClient := api.NewLoggingClients("0.0.0.0:8500", "logging")
+	messagesClient := api.NewMessageClients("0.0.0.0:8500", "messages")
 
-		return
-	}
-
-	messagesClient, err := NewMessageClients()
-	if err != nil {
-		slog.Error(err.Error())
-
-		return
-	}
-
-	facadeService := services.NewFacadeService(loggingClient, messagesClient, hc)
+	facadeService := services.NewFacadeService(loggingClient, messagesClient, hc, cfg)
 	facadeHandler := handlers.NewFacadeHandler(facadeService)
 
 	s := http.NewServer(context.Background(), "facade", slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		http.Config{
-			Host:         "0.0.0.0",
-			Port:         1233,
+			Host:         "127.0.0.1",
+			Port:         uint16(*port),
 			ReadTimeout:  time.Second * 10,
 			WriteTimeout: time.Second * 10,
 			IdleTimeout:  time.Second * 10,
@@ -58,45 +54,18 @@ func main() {
 
 	s.AsyncRun()
 
+	cancel, err := consul.Register("0.0.0.0:8500", "facade", "127.0.0.1", uint16(*port))
+	if err != nil {
+		slog.Error("can't register'", "err", err)
+		s.Shutdown(context.Background())
+
+		return
+	}
+
 	<-utils.WaitTermSignal()
 
+	cancel()
 	s.Shutdown(context.Background())
 
 	slog.Info("shutdown", "server was running for", time.Since(now))
-}
-
-func NewLoggingClients() (api.LoggingClients, error) {
-	ports := []uint16{1230, 1231, 1232}
-	clients := []api.LoggingServiceClient{}
-
-	for _, port := range ports {
-		loggingCfg := transportGRPC.Config{Host: "0.0.0.0", Port: port}
-
-		loggingConn, err := grpc.Dial(loggingCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			return api.LoggingClients{}, err
-		}
-
-		clients = append(clients, api.NewLoggingServiceClient(loggingConn))
-	}
-
-	return api.NewLoggingClients(clients...), nil
-}
-
-func NewMessageClients() (api.MessageClients, error) {
-	ports := []uint16{1240, 1241}
-	clients := []api.MessagesServiceClient{}
-
-	for _, port := range ports {
-		loggingCfg := transportGRPC.Config{Host: "0.0.0.0", Port: port}
-
-		messageConn, err := grpc.Dial(loggingCfg.DNS(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			return api.MessageClients{}, err
-		}
-
-		clients = append(clients, api.NewMessagesServiceClient(messageConn))
-	}
-
-	return api.NewMessageClients(clients...), nil
 }

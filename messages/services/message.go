@@ -6,16 +6,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/krls256/dsd2024/messages/entities"
+	pkgHazelcast "github.com/krls256/dsd2024/pkg/hazelcast"
 	"github.com/samber/lo"
 	"log/slog"
 )
 
-const TopicName = "messages"
-
-func NewMessageService(hazelcastClient *hazelcast.Client) (*MessageService, error) {
+func NewMessageService(hazelcastClient *hazelcast.Client, hazelcastCfg pkgHazelcast.Config) (*MessageService, error) {
 	s := &MessageService{
 		hazelcastClient: hazelcastClient,
-		messages:        map[uuid.UUID]string{},
+		hazelcastCfg:    hazelcastCfg,
+
+		messages: map[uuid.UUID]string{},
 	}
 
 	return s, s.run()
@@ -23,7 +24,9 @@ func NewMessageService(hazelcastClient *hazelcast.Client) (*MessageService, erro
 
 type MessageService struct {
 	hazelcastClient *hazelcast.Client
-	messages        map[uuid.UUID]string
+	hazelcastCfg    pkgHazelcast.Config
+
+	messages map[uuid.UUID]string
 }
 
 func (s *MessageService) All() []string {
@@ -31,7 +34,7 @@ func (s *MessageService) All() []string {
 }
 
 func (s *MessageService) run() error {
-	q, err := s.hazelcastClient.GetQueue(context.Background(), TopicName)
+	q, err := s.hazelcastClient.GetQueue(context.Background(), s.hazelcastCfg.QueueName)
 	if err != nil {
 		return err
 	}
